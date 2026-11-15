@@ -8,7 +8,7 @@ from neo4j import GraphDatabase
 
 LABEL = "__Entity__"
 PROP_NOME = "id"
-DRY_RUN = False  # True para teste, False para unir grupos
+DRY_RUN = True  # True para teste, False para unir grupos
 
 PREFIXOS = ("areade", "area", "local", "localde", "projeto ", "projetode", "programa ", "acao", "acaode", "conceito", "conceitode")
 SIGLAS = {

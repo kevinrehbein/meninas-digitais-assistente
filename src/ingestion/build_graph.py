@@ -1,43 +1,43 @@
-import asyncio
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from chunking import chunks
 from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
+from langchain.rate_limiters import InMemoryRateLimiter
 from langchain_neo4j import LLMGraphTransformer, Neo4jGraph
-from langchain_ollama import ChatOllama
 from tenacity import (
     retry,
-    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential_jitter,
 )
 
-CONCORRENCIA_POR_GPU = 6
+WORKERS = 4
 
+MODELO = "gemma-4-31b-it"
+IGNORAR_FALHAS = False  # True = não tenta de novo os chunks que já falharam
+REQUISICOES_POR_MINUTO = 10
 ROOT = Path(__file__).resolve().parents[1]
 FALHAS = ROOT / "ingestion" / "checkpoint_falhas.jsonl"
 FEITOS = ROOT / "ingestion" / "checkpoint_feitos.jsonl"
 
+rate_limiter = InMemoryRateLimiter(
+    requests_per_second=REQUISICOES_POR_MINUTO / 60,
+    check_every_n_seconds=0.1,
+    max_bucket_size=1,
+)
+
 load_dotenv()
 
-# Modelos utilizados para extrair entidades via Ollama rodando no Kaggle 2xT4
-llm_graph_transformer_0 = ChatOllama(
-    model="qwen3:8b",
-    reasoning=False,
+llm = init_chat_model(
+    "gemma-4-31b-it",
+    model_provider="google_genai",
     temperature=0,
-    num_ctx=8192,
-    num_predict=4096,
-    base_url="http://127.0.0.1:11434",
-)
-llm_graph_transformer_1 = ChatOllama(
-    model="qwen3:8b",
-    reasoning=False,
-    temperature=0,
-    num_ctx=8192,
-    num_predict=4096,
-    base_url="http://127.0.0.1:11435",
+    timeout=180,
+    max_retries=0,
+    rate_limiter=rate_limiter,
 )
 
 # Grafo Neo4j hospedado no AuraDB
@@ -57,54 +57,63 @@ def make_LLMGraphTransformer(llm):
             "Ferramenta",
             "Publico",
             "Conceito",
-            "Area",
             "Resultado",
             "Instituicao",
             "Local",
         ],
         allowed_relationships=[
-            "REALIZA",
-            "DESENVOLVE",
-            "VINCULADO_A",
-            "LOCALIZADO_EM",
-            "DIRIGIDA_A",
-            "ABORDA",
-            "PRODUZ",
-            "PERTENCE_A",
-            "IMPACTA",
+            ("Projeto", "REALIZA", "Acao"),
+            ("Projeto", "DESENVOLVE", "Ferramenta"),
+            ("Projeto", "UTILIZA", "Ferramenta"),
+            ("Acao", "UTILIZA", "Ferramenta"),
+            ("Projeto", "VINCULADO_A", "Projeto"),
+            ("Projeto", "VINCULADO_A", "Instituicao"),
+            ("Instituicao", "LOCALIZADO_EM", "Local"),
+            ("Acao", "LOCALIZADO_EM", "Local"),
+            ("Projeto", "LOCALIZADO_EM", "Local"),
+            ("Local", "LOCALIZADO_EM", "Local"),
+            ("Acao", "DIRIGIDA_A", "Publico"),
+            ("Projeto", "DIRIGIDA_A", "Publico"),
+            ("Projeto", "ABORDA", "Conceito"),
+            ("Acao", "ABORDA", "Conceito"),
+            ("Ferramenta", "ABORDA", "Conceito"),
+            ("Projeto", "PRODUZ", "Resultado"),
+            ("Acao", "PRODUZ", "Resultado"),
+            ("Ferramenta", "PRODUZ", "Resultado"),
+            ("Resultado", "IMPACTA", "Publico"),
         ],
         strict_mode=True,
         node_properties=["descricao"],
         additional_instructions=(
-            "Escreva em português. Use nomes consistentes para as entidades. "
-            "OBRIGATÓRIO: preencha a propriedade descricao em TODO nó, com 1 frase "
-            "baseada no texto. "
-            "Use apenas os tipos de nó e de relação permitidos, exatamente "
-            "como escritos, sem acentos. "
-            "Respeite a direção e os tipos de cada relação: "
-            "Projeto REALIZA Acao; "
-            "Projeto DESENVOLVE Ferramenta; "
-            "Projeto VINCULADO_A Projeto (projetos relacionados entre si); "
-            "Projeto VINCULADO_A Instituicao; "
-            "Instituicao, Acao, Projeto ou Local LOCALIZADO_EM Local "
-            "(use sempre para dizer onde algo fica ou acontece); "
-            "Acao ou Ferramenta DIRIGIDA_A Publico; "
-            "Projeto, Acao ou Ferramenta ABORDA Conceito; "
-            "Acao ou Ferramenta PRODUZ Resultado; "
-            "Projeto ou Conceito PERTENCE_A Area; "
-            "Resultado IMPACTA Publico."
+            "Escreva em português, com nomes naturais e espaços (nunca snake_case nem prefixos como 'Acao_', 'Conceito de'). "
+            "Preencha 'descricao' em TODO nó com uma frase descritiva e objetiva, baseada no texto, que resume a ideia central desse nó.\n"
+            "CRITÉRIO: só crie nó com nome próprio ou termo técnico específico, que serviria de título de verbete. "
+            "Se precisar de contexto para fazer sentido ('oficinas', 'alunas', 'inclusão', 'escola'), não crie. "
+            "Na dúvida, não extraia.\n"
+            "Projeto: iniciativa contínua com nome próprio ('Meninas.Comp'). "
+            "Acao: atividade com título ou tema próprio ('Oficina de Scratch'); 'realizou oficinas' não gera nó.\n"
+            "Instituicao: só executora, proponente ou de fomento (universidades, IFs, CNPq), "
+            "somente com nome próprio ('UFPel', 'UFSC').\n"
+            "Local: só cidades, estados, regiões ou países; nunca espaços físicos.\n"
+            "DESENVOLVE: só software criado pela equipe; ferramentas prontas (Scratch, Python, Arduino) usam UTILIZA.\n"
+            "Conceito: tema técnico, metodologia ou campo do conhecimento específico "
+            "('Computação Desplugada', 'Robótica Educacional', 'STEM'); "
+            "temas sociais só qualificados por quem e onde ('Inclusão de Meninas na Computação'); "
+            "nunca palavras vagas como 'Inclusão', 'Diversidade', 'Empoderamento', 'Metodologia'. "
+            "Reuse o termo exato para o mesmo conceito.\n"
+            "Publico: perfil padronizado ('Alunas do Ensino Médio', 'Graduandas em Computação'). "
+            "Resultado: só efeito concreto que diga o que mudou e para quem ('Redução da evasão'); "
+            "nunca 'Resultados positivos'.\n"
+            "Não extraia citações e autores ('Muller et al., 2025'), seções, autorreferências ('este trabalho'), "
+            "métodos de pesquisa ('pesquisa quantitativa') nem itens numerados ('Figura 1', 'QP1', 'Grupo 3').\n"
+            "EXEMPLO: 'O Meninas.Comp, da UFSC, realizou oficinas com alunas, com resultados positivos e maior inclusão.' "
+            "-> extrair Meninas.Comp VINCULADO_A UFSC; não extrair 'oficinas', 'alunas', 'resultados positivos', 'inclusão'."
         ),
         ignore_tool_usage=False,
     )
 
 
-LLMGraphTransformers = [
-    make_LLMGraphTransformer(llm_graph_transformer_0),
-    make_LLMGraphTransformer(llm_graph_transformer_1),
-]
-
-sems = [asyncio.Semaphore(CONCORRENCIA_POR_GPU) for _ in LLMGraphTransformers]
-db_lock = asyncio.Lock()
+transformer = make_LLMGraphTransformer(llm)
 
 
 def add_metadata(doc):
@@ -140,12 +149,6 @@ def chunk_id(chunk) -> str:
     return chunk.metadata["id"]
 
 
-graph.query(
-    "CREATE CONSTRAINT checkpoint_id IF NOT EXISTS "
-    "FOR (c:Checkpoint) REQUIRE c.id IS UNIQUE"
-)
-
-
 def carregar(path: Path) -> set[str]:
     if not path.exists():
         return set()
@@ -168,64 +171,64 @@ def anexar_linha(path: Path, linha: str) -> None:
 
 
 @retry(
-    retry=retry_if_exception_type(Exception),
-    wait=wait_exponential_jitter(initial=1, max=3),
+    wait=wait_exponential_jitter(initial=15, max=60),
     stop=stop_after_attempt(3),
     reraise=True,
 )
-async def extrair_grafo(lote, transformer):
-    return await asyncio.wait_for(
-        transformer.aconvert_to_graph_documents(lote), timeout=420
-    )
+def extrair_grafo(doc):
+    return transformer.convert_to_graph_documents([doc])
 
 
-def gravar(graph_docs, doc, cid):
-    graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)
-    add_metadata(doc)
-    anexar_linha(FEITOS, json.dumps({"id": cid}, ensure_ascii=False))
-
-
-async def processar(i, cid, doc):
-    k = i % len(LLMGraphTransformers)  # GPU deste chunk
+def extrair(doc):
+    """Roda na thread: só chama o modelo, não mexe em banco nem em arquivo."""
     try:
-        async with sems[k]:
-            graph_docs = await extrair_grafo([doc], LLMGraphTransformers[k])
-        # semáforo liberado
-
+        graph_docs = extrair_grafo(doc)
         if not graph_docs or not graph_docs[0].nodes:
             raise ValueError("extração retornou vazio")
-
-        async with db_lock:  # um write por vez no Neo4j
-            await asyncio.to_thread(gravar, graph_docs, doc, cid)
-
+        return doc, graph_docs, None
     except Exception as e:  # noqa: BLE001
-        anexar_linha(
-            FALHAS, json.dumps({"id": cid, "erro": str(e)}, ensure_ascii=False)
-        )
-        print(f"Falha no chunk {cid}: {e}", flush=True)
+        return doc, None, e
 
 
-async def main():
-    await asyncio.gather(
-        *(processar(i, cid, doc) for i, (cid, doc) in enumerate(pendentes))
-    )
+def gravar(doc, graph_docs):
+    """Roda na thread principal, um chunk por vez."""
+    graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)
+    add_metadata(doc)
+    anexar_linha(FEITOS, json.dumps({"id": chunk_id(doc)}, ensure_ascii=False))
 
 
-feitos = carregar(FEITOS)
-falhos = carregar(FALHAS)
-pendentes = [
-    (chunk_id(c), c)
-    for c in chunks
-    if chunk_id(c) not in feitos and chunk_id(c) not in falhos
-]
-print(
-    f"Total: {len(chunks)} | Feitos: {len(feitos)} | "
-    f"Falhos (ignorados): {len(falhos)} | Pendentes: {len(pendentes)}"
-)
+def main():
+    feitos = carregar(FEITOS)
+    falhos = carregar(FALHAS) if IGNORAR_FALHAS else set()
+    pendentes = [
+        c for c in chunks if chunk_id(c) not in feitos and chunk_id(c) not in falhos
+    ]
+    print(f"Total: {len(chunks)} | Feitos: {len(feitos)} | Pendentes: {len(pendentes)}")
 
-try:
-    asyncio.run(main())
-except KeyboardInterrupt:
-    print("\nInterrompido. O progresso está salvo, rode de novo para retomar.")
+    ok = 0
+    ex = ThreadPoolExecutor(max_workers=WORKERS)
+    try:
+        futuros = [ex.submit(extrair, d) for d in pendentes]
+        for n, fut in enumerate(as_completed(futuros), start=1):
+            doc, graph_docs, erro = fut.result()
+            cid = chunk_id(doc)
+            try:
+                if erro:
+                    raise erro
+                gravar(doc, graph_docs)
+                ok += 1
+            except Exception as e:  # noqa: BLE001
+                anexar_linha(
+                    FALHAS, json.dumps({"id": cid, "erro": str(e)}, ensure_ascii=False)
+                )
+                print(f"Falha no chunk {cid}: {e}", flush=True)
+            print(f"[{n}/{len(pendentes)}] ok={ok} falhas={n - ok}", flush=True)
+    except KeyboardInterrupt:
+        ex.shutdown(wait=False, cancel_futures=True)
+        print("\nInterrompido. O progresso está salvo, rode de novo para retomar.")
+    else:
+        ex.shutdown()
+    print("Fim da execução.")
 
-print("Fim da execução.")
+if __name__ == "__main__":
+    main()

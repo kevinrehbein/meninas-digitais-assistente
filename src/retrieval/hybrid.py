@@ -91,10 +91,8 @@ class HybridRetriever:
             },
         )
 
-    def _fontes_das_entidades(self, relacoes: list[dict]) -> dict[str, list[str]]:
-        eids = {r["eid_origem"] for r in relacoes} | {
-            r["eid_destino"] for r in relacoes
-        }
+    def _fontes_fallback(self, eids: set[str]) -> dict[str, list[str]]:
+        """Artigo que mais menciona cada entidade (usado só como fallback)."""
         rows = self.graph.query(
             """
             UNWIND $eids AS eid
@@ -103,31 +101,49 @@ class HybridRetriever:
             MATCH (d)-[:PARTE_DE]->(a:Artigo)
             WITH eid, a.titulo AS titulo, count(*) AS n
             ORDER BY n DESC
-            RETURN eid, collect(titulo)[..3] AS titulos
+            RETURN eid, collect(titulo)[..1] AS titulos
             """,
             {"eids": list(eids)},
         )
         return {r["eid"]: r["titulos"] for r in rows}
 
-    '''
-    def _chunks_do_grafo(self, ents: list[str], excluir: list[str], vec: list[float]) -> list[dict]:
-        return self.graph.query(
+    def _fontes_das_relacoes(
+        self, relacoes: list[dict]
+    ) -> dict[tuple[str, str], list[str]]:
+        """Fonte de cada tripla (eid_origem, eid_destino) -> títulos de artigos.
+
+        1) Artigos com chunk que menciona AMBAS as entidades (comprovam a tripla).
+        2) Fallback: principal artigo de cada ponta.
+        """
+        if not relacoes:
+            return {}
+        pares = list({(r["eid_origem"], r["eid_destino"]) for r in relacoes})
+        rows = self.graph.query(
             """
-            UNWIND $ents AS eid
-            MATCH (x:__Entity__) WHERE elementId(x) = eid
-            MATCH (d:Document)-[:MENTIONS]->(x)
-            WHERE NOT d.id IN $excluir
-            WITH d,
-                 count(DISTINCT x) AS cobertura,
-                 coalesce(vector.similarity.cosine(d.embedding, $vec), 0.0) AS score
-            ORDER BY score DESC, cobertura DESC
-            LIMIT $k
-            OPTIONAL MATCH (d)-[:PARTE_DE]->(a:Artigo)
-            RETURN d.id AS id, d.text AS texto, a.titulo AS titulo, a.url_artigo AS url, score
+            UNWIND $pares AS par
+            MATCH (o:__Entity__) WHERE elementId(o) = par[0]
+            MATCH (d:__Entity__) WHERE elementId(d) = par[1]
+            CALL (o, d) {
+                MATCH (o)<-[:MENTIONS]-(c:Document)-[:MENTIONS]->(d)
+                MATCH (c)-[:PARTE_DE]->(a:Artigo)
+                WITH a.titulo AS titulo, count(*) AS n
+                ORDER BY n DESC
+                RETURN collect(titulo)[..3] AS titulos
+            }
+            RETURN par[0] AS eo, par[1] AS ed, titulos
             """,
-            {"ents": ents, "excluir": excluir, "k": K_GRAFO, "vec": vec},
+            {"pares": [list(p) for p in pares]},
         )
-    '''
+        fontes = {(r["eo"], r["ed"]): r["titulos"] for r in rows}
+
+        sem_comum = [p for p in pares if not fontes.get(p)]
+        if sem_comum:
+            por_ent = self._fontes_fallback({e for p in sem_comum for e in p})
+            for eo, ed in sem_comum:
+                fontes[(eo, ed)] = list(
+                    dict.fromkeys(por_ent.get(eo, []) + por_ent.get(ed, []))
+                )
+        return fontes
 
     @staticmethod
     def _filtrar_um_por_artigo(chunks: list[dict]) -> list[dict]:
@@ -142,70 +158,72 @@ class HybridRetriever:
 
     @staticmethod
     def _formatar_relacoes(
-        nos_entrada: list[dict], relacoes: list[dict], fontes: dict | None = None
+        nos_entrada: list[dict],
+        relacoes: list[dict],
+        fontes: dict[tuple[str, str], list[str]] | None = None,
     ) -> str:
         if not relacoes:
             return ""
         fontes = fontes or {}
-        sementes = {e["eid"]: e for e in nos_entrada}
-        vistos: set[str] = set()
 
-        def no(nome: str, desc: str, eid: str) -> str:
-            if eid in vistos:  # descrição e fonte só na primeira vez
-                return nome
-            vistos.add(eid)
-            fonte = "".join(f" [FONTE: {t}]" for t in fontes.get(eid, []))
-            return f"{nome}: {desc}{fonte}" if desc else f"{nome}{fonte}"
-
-        # agrupa cada relação pela semente que a originou
-        grupos: dict[str, list[str]] = {}
+        # Entidades únicas: sementes primeiro (ordem do índice), depois vizinhas.
+        entidades: dict[str, tuple[str, str]] = {
+            e["eid"]: (e["nome"], e.get("descricao", "")) for e in nos_entrada
+        }
+        triplas: list[str] = []
         for r in relacoes:
-            saindo = r["eid_origem"] in sementes
-            if saindo:
-                eid_s, seta = r["eid_origem"], f"-[{r['rel']}]->"
-                viz = no(r["destino"], r["desc_destino"], r["eid_destino"])
-            else:
-                eid_s, seta = r["eid_destino"], f"<-[{r['rel']}]-"
-                viz = no(r["origem"], r["desc_origem"], r["eid_origem"])
-            grupos.setdefault(eid_s, []).append(f"  {seta} {viz}")
+            eo, ed = r["eid_origem"], r["eid_destino"]
+            entidades.setdefault(eo, (r["origem"], r["desc_origem"]))
+            entidades.setdefault(ed, (r["destino"], r["desc_destino"]))
 
-        linhas = []
-        for eid_s, itens in grupos.items():
-            s = sementes[eid_s]
-            linhas.append(no(s["nome"], s.get("descricao", ""), eid_s))
-            linhas.extend(itens)
+            linha = f"({r['origem']}) -[{r['rel']}]-> ({r['destino']})"
+            titulos = fontes.get((eo, ed), [])
+            if titulos:
+                linha += " | " + " ".join(f"[FONTE: {t}]" for t in titulos)
+            triplas.append(linha)
 
-        return "=== GRAFO: ENTIDADES E RELAÇÕES ===\n" + "\n".join(linhas) + "\n\n"
-
+        linhas_ent = [
+            f"- {nome}: {desc}" if desc else f"- {nome}"
+            for nome, desc in entidades.values()
+        ]
+        return (
+            "=== ENTIDADES ===\n"
+            + "\n".join(linhas_ent)
+            + "\n\n=== RELAÇÕES (TRIPLAS) ===\n"
+            + "\n".join(dict.fromkeys(triplas))  # remove triplas idênticas
+            + "\n\n"
+        )
+ 
     @staticmethod
-    def _formatar_chunks(chunks: list[dict], consulta: str = "") -> str:
-        # `consulta` não é usada aqui: é lida pelo extrator do TruLens (run_trulens.py).
+    def formatar_chunk(c: dict) -> str:
+        """Formata um único chunk (fonte única de verdade, usada também na avaliação)."""
+        return (
+            f"[FONTE: {c.get('titulo') or 'Sem título'} | {c.get('url') or ''}]\n"
+            f"{c['texto']}"
+        ).rstrip()
+ 
+    @staticmethod
+    def _formatar_chunks(chunks: list[dict]) -> str:
         if not chunks:
             return ""
-        corpo = "\n\n".join(
-            f"[FONTE: {c.get('titulo') or 'Sem título'} | {c.get('url') or ''}]\n{c['texto']}".rstrip()
-            for c in chunks
-        )
+        corpo = "\n\n".join(HybridRetriever.formatar_chunk(c) for c in chunks)
         return f"=== TRECHOS DE ARTIGOS (CHUNKS) ===\n{corpo}"
+
+    def bloco_grafo(self, vec: list[float]) -> str:
+        """Entidades + triplas com fonte. Vazio se não houver entidade/relação."""
+        nos = self._entidades_entrada(vec)
+        if not nos:
+            return ""
+
+        relacoes = self._relacoes_do_grafo(nos, vec)
+        return self._formatar_relacoes(nos, relacoes, self._fontes_das_relacoes(relacoes))
 
     def recuperar_contexto(self, pergunta: str, um_por_artigo: bool = False) -> str:
         """Pipeline GraphRAG: retorna o contexto formatado para o LLM."""
         vec = self.embedding_model.embed_query(pergunta)
 
-        chunks_base = self._chunks_entrada(vec)
-        nos_entrada = self._entidades_entrada(vec)
-        seeds = [{"eid": r["eid"], "score": r["score"]} for r in nos_entrada]
+        chunks = self._chunks_entrada(vec)
+        if um_por_artigo:
+            chunks = self._filtrar_um_por_artigo(chunks)
 
-        relacoes: list[dict] = []
-        fontes: dict = {}
-        if seeds:
-            relacoes = self._relacoes_do_grafo(seeds, vec)
-            fontes = self._fontes_das_entidades(relacoes) if relacoes else {}
-
-        chunks = (
-            self._filtrar_um_por_artigo(chunks_base) if um_por_artigo else chunks_base
-        )
-
-        return self._formatar_relacoes(
-            nos_entrada, relacoes, fontes
-        ) + self._formatar_chunks(chunks, pergunta)
+        return self._formatar_chunks(chunks) + "\n\n" + self.bloco_grafo(vec)

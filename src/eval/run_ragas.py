@@ -6,7 +6,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # raiz = src/
 
-from litellm import max_tokens
 import pandas as pd
 from langchain.chat_models import init_chat_model
 from openai import AsyncOpenAI
@@ -20,7 +19,7 @@ from ragas.metrics.collections import (
 )
 
 from agents.utils import message_text
-from config import K_GRAFO, TOP_K, validate_config
+from config import validate_config
 from retrieval.hybrid import HybridRetriever
 
 ROOT = Path(__file__).resolve().parent
@@ -34,10 +33,10 @@ Regras:
 - Extraia de cada item encontrado nomes próprios de projetos, ações, locais e instituições.
 - Depois de cada item, cite obrigatoriamente a fonte no formato: [FONTE: Título exato do artigo]. Use apenas títulos de artigos (nunca nomes de entidades do grafo).
 
-{relacoes}
-
 Trechos dos artigos:
 {contexto}
+
+{relacoes}
 
 Pergunta: {pergunta}
 Resposta:"""
@@ -90,20 +89,10 @@ def semantico(vec):
 
 
 def hibrido(vec):
-    base = r._chunks_entrada(vec)
-    entradas = r._entidades_entrada(vec)
-    seeds = [{"eid": e["eid"], "score": e["score"]} for e in entradas]
-
-    if not seeds:
-        return base, ""
-
-    rels = r._relacoes_do_grafo(seeds, vec)
-    fontes = r._fontes_das_entidades(rels) if rels else {}
-    return base, r._formatar_relacoes(entradas, rels, fontes)
+    return r._chunks_entrada(vec), r.bloco_grafo(vec)
 
 
-def fmt(c):
-    return f"[FONTE: {c.get('titulo') or 'Sem título'} | {c.get('url') or ''}]\n{c['texto']}"
+fmt = HybridRetriever.formatar_chunk
 
 
 def avaliar(metricas, pergunta, resposta, contextos):
@@ -160,13 +149,16 @@ if __name__ == "__main__":
 
     for nome, fn in {"semantico": semantico, "hibrido": hibrido}.items():
         arquivo_csv = ROOT / f"ragas_{nome}.csv"
-        processados = set()
 
-        # Retomada de sessão: carrega os IDs já processados se o CSV existir
+        METRICAS = ["faithfulness", "answer_relevancy", "context_relevance", "context_utilization"]
+
+        processados = set()
         if arquivo_csv.exists():
-            df_existente = pd.read_csv(arquivo_csv)
-            if "id" in df_existente.columns:
-                processados = set(df_existente["id"].tolist())
+            df = pd.read_csv(arquivo_csv, dtype={"id": str})
+            df = df.drop_duplicates("id", keep="last")
+            completo = df[METRICAS].notna().all(axis=1)
+            df[completo].to_csv(arquivo_csv, index=False)
+            processados = set(df.loc[completo, "id"])
 
         print(
             f"\n=== Sistema: {nome.upper()} | Já concluídas: {len(processados)}/{len(perguntas)} ===",
@@ -174,7 +166,7 @@ if __name__ == "__main__":
         )
 
         for q in perguntas:
-            q_id = q["id"]
+            q_id = str(q["id"])
             if q_id in processados:
                 print(f"Pulando ID {q_id} (já processado).")
                 continue
