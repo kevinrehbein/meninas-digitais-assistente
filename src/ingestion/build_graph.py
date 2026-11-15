@@ -22,6 +22,7 @@ REQUISICOES_POR_MINUTO = 10
 ROOT = Path(__file__).resolve().parents[1]
 FALHAS = ROOT / "ingestion" / "checkpoint_falhas.jsonl"
 FEITOS = ROOT / "ingestion" / "checkpoint_feitos.jsonl"
+VAZIOS = ROOT / "ingestion" / "checkpoint_vazios.jsonl"
 
 rate_limiter = InMemoryRateLimiter(
     requests_per_second=REQUISICOES_POR_MINUTO / 60,
@@ -35,7 +36,7 @@ llm = init_chat_model(
     "gemma-4-31b-it",
     model_provider="google_genai",
     temperature=0,
-    timeout=180,
+    timeout=240,
     max_retries=0,
     rate_limiter=rate_limiter,
 )
@@ -171,8 +172,8 @@ def anexar_linha(path: Path, linha: str) -> None:
 
 
 @retry(
-    wait=wait_exponential_jitter(initial=15, max=60),
-    stop=stop_after_attempt(3),
+    wait=wait_exponential_jitter(initial=15, max=120),
+    stop=stop_after_attempt(5),
     reraise=True,
 )
 def extrair_grafo(doc):
@@ -183,17 +184,20 @@ def extrair(doc):
     """Roda na thread: só chama o modelo, não mexe em banco nem em arquivo."""
     try:
         graph_docs = extrair_grafo(doc)
-        if not graph_docs or not graph_docs[0].nodes:
-            raise ValueError("extração retornou vazio")
+        if not graph_docs:
+            raise ValueError("Erro na extração.")
         return doc, graph_docs, None
     except Exception as e:  # noqa: BLE001
         return doc, None, e
-
 
 def gravar(doc, graph_docs):
     """Roda na thread principal, um chunk por vez."""
     graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)
     add_metadata(doc)
+
+    if not graph_docs[0].nodes:
+        anexar_linha(VAZIOS, json.dumps({"id": chunk_id(doc)}, ensure_ascii=False))
+
     anexar_linha(FEITOS, json.dumps({"id": chunk_id(doc)}, ensure_ascii=False))
 
 
