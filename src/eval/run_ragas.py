@@ -1,16 +1,9 @@
 """Avaliação RAGAS em duas fases, para caber em 2x T4 (30 GB) no Kaggle.
 
 Fase 1 (gerar):   recupera + gera respostas com o GERADOR (Mistral) e salva em
-                  respostas_<sistema><tag>.csv. Ao final, descarrega o gerador da VRAM.
+                  respostas_<sistema>.csv. Ao final, descarrega o gerador da VRAM.
 Fase 2 (avaliar): lê esses CSVs e roda as métricas RAGAS com o JUIZ (Qwen),
-                  salvando ragas_<sistema><tag>.csv e a tabela comparativa.
-
-Uso:
-    uv run run_ragas.py --fase gerar   --n 1
-    uv run run_ragas.py --fase avaliar
-    # repetições para medir variância (temperatura > 0):
-    uv run run_ragas.py --fase gerar --temp 0.5 --tag _t05_r1
-    uv run run_ragas.py --fase avaliar --tag _t05_r1
+                  salvando ragas_<sistema>.csv e a tabela comparativa.
 """
 
 import argparse
@@ -51,20 +44,21 @@ SISTEMAS = ["semantico", "hibrido"]
 METRICAS = ["faithfulness", "answer_relevancy", "context_relevance", "context_utilization"]
 
 PROMPT = """Você é um assistente do Programa Meninas Digitais.
-Responda usando APENAS o contexto abaixo, que traz trechos de artigos e, às vezes, relações de um grafo (entidades e triplas).
+Responda usando APENAS o contexto abaixo, que tem duas fontes complementares: um grafo (ENTIDADES e RELAÇÕES, quando existir) e trechos de artigos.
+
+Pergunta: {pergunta}
 
 Regras:
-- Considere todos os trechos, entidades e relações como evidência confiável e reúna os itens relevantes para a pergunta.
-- Inclua cada item relevante encontrado na resposta.
-- Após cada item, cite obrigatoriamente [FONTE: Título exato do artigo], copiando o título que vem no trecho ou na tripla depois de "FONTE:". Nunca use nome de entidade como fonte.
-- Se o contexto cobrir só parte da pergunta, responda com o que encontrou. Apenas diga que não encontrou se não houver nenhuma informação relevante.
+- Leia o grafo e os trechos e responda com a UNIÃO dos itens relevantes das duas fontes. Um item pode aparecer só em uma delas ou em ambas (às vezes com nomes parecidos): nesse caso trate como um só e combine as informações.
+- Para cada item, responda todas as partes da pergunta. Se uma parte não estiver no contexto, escreva "não informado".
+- Após cada item, cite [FONTE: Título exato do artigo], copiando o título que vem depois de "FONTE:" (cite todos se o item vem de mais de um artigo). Nunca use nome de entidade como fonte.
+- Se o contexto cobrir só parte da pergunta, responda com o que foi encontrado.
+
+{relacoes}
 
 Trechos dos artigos:
 {contexto}
 
-{relacoes}
-
-Pergunta: {pergunta}
 Resposta:"""
 
 
