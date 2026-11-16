@@ -169,9 +169,13 @@ class HybridRetriever:
         fontes = fontes or {}
 
         # Entidades únicas: sementes primeiro (ordem do índice), depois vizinhas.
-        entidades: dict[str, tuple[str, str]] = {
-            e["eid"]: (e["nome"], e.get("descricao", "")) for e in nos_entrada
+        eids_com_relacao = {r["eid_origem"] for r in relacoes} | {r["eid_destino"] for r in relacoes}
+        entidades = {
+            e["eid"]: (e["nome"], e.get("descricao", ""))
+            for e in nos_entrada
+            if e["eid"] in eids_com_relacao
         }
+
         triplas: list[str] = []
         for r in relacoes:
             eo, ed = r["eid_origem"], r["eid_destino"]

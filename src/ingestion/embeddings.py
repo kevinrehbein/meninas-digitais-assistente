@@ -6,7 +6,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
 from retrieval.embedding_model import DIM, get_embeddings
 
-LOTE = 32
+LOTE = 16
 
 load_dotenv()
 

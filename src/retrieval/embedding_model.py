@@ -14,10 +14,11 @@ load_dotenv()
 class SpaceEmbeddings(Embeddings):
     """Embeddings BGE-M3 servidos por um Space do Hugging Face (Gradio)."""
 
-    def __init__(self, space_id: str, retries: int = 8, wait: float = 20.0) -> None:
+    def __init__(self, space_id: str, retries: int = 8, wait: float = 20.0, batch_size: int = 16) -> None:
         self.space_id = space_id
         self.retries = retries
         self.wait = wait
+        self.batch_size = batch_size
         self._client: Client | None = None
         self._lock = threading.Lock()
 
@@ -46,8 +47,8 @@ class SpaceEmbeddings(Embeddings):
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         out: list[list[float]] = []
-        for i in range(0, len(texts), 32):
-            out.extend(self._call(texts[i : i + 32]))
+        for i in range(0, len(texts), self.batch_size):
+            out.extend(self._call(texts[i : i + self.batch_size]))
         return out
 
 def get_embeddings() -> Embeddings:

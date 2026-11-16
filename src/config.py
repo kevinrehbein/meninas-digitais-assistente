@@ -16,7 +16,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 # --- Hiperparâmetros GraphRAG ---
 TOP_K = 10
-N_ENTIDADES = 5
+N_ENTIDADES = 10
 SCORE_MIN = 0.7
 TETO_GRAU = 350
 K_GRAFO = 0
