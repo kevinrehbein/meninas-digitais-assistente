@@ -54,10 +54,11 @@ Responda usando APENAS o contexto abaixo, que tem duas fontes complementares: um
 Pergunta: {pergunta}
 
 Regras:
-- Leia o grafo e os trechos e responda com a UNIÃO dos itens relevantes das duas fontes. Um item pode aparecer só em uma delas ou em ambas (às vezes com nomes parecidos): nesse caso trate como um só e combine as informações.
-- Para cada item, responda todas as partes da pergunta. Se uma parte não estiver no contexto, escreva "não informado".
+- Leia o grafo e os trechos e responda com a UNIÃO dos itens relevantes das duas fontes. Um item pode aparecer só em uma delas ou em ambas: nesse caso trate como um só e combine as informações.
+- Consolidação: agrupe todas as menções referentes ao mesmo projeto, iniciativa ou conceito em um único item. Não desmembre um mesmo projeto em vários itens separados.
+- Filtragem de relevância: inclua APENAS itens que respondam diretamente ao que foi perguntado.
 - Após cada item, cite [FONTE: Título exato do artigo], copiando o título que vem depois de "FONTE:" (cite todos se o item vem de mais de um artigo). Nunca use nome de entidade como fonte.
-- Se o contexto cobrir só parte da pergunta, responda com o que foi encontrado.
+- Se o contexto cobrir só parte da pergunta, responda APENAS o que foi encontrado.
 
 {relacoes}
 
@@ -109,7 +110,7 @@ def fase_gerar(r, emb, perguntas):
         base_url=OLLAMA_URL,
         temperature=GEN_TEMP,
         num_ctx=NUM_CTX,
-        num_predict=4096,
+        num_predict=2048,
     )
     fmt = HybridRetriever.formatar_chunk
     print(
@@ -222,7 +223,11 @@ def fase_avaliar(emb):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    client = AsyncOpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
+    client = AsyncOpenAI(
+        base_url=f"{OLLAMA_URL}/v1",
+        api_key="ollama",
+        max_retries=0,
+    )
 
     judge_llm = llm_factory(
         model=JUDGE_MODEL,
