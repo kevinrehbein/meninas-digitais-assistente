@@ -149,7 +149,8 @@ def fase_gerar(r, emb, perguntas):
                 print(f"ID {q_id}: resposta vazia, não será salva.", flush=True)
                 continue
 
-            contextos = [fmt(c) for c in chunks] + ([rels] if rels else [])
+            contextos = ([rels] if rels else []) + [fmt(c) for c in chunks]
+
             linha = pd.DataFrame(
                 [
                     {
