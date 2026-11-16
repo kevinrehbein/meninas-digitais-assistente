@@ -34,14 +34,19 @@ from retrieval.hybrid import HybridRetriever
 ROOT = Path(__file__).resolve().parent
 
 OLLAMA_URL = "http://127.0.0.1:11434"
-GEN_MODEL = "mistral-small3.2:24b"  # confira a tag exata em ollama.com/library
+GEN_MODEL = "mistral-small3.2:24b"
 GEN_TEMP = 0.0
 JUDGE_MODEL = "qwen3.8:27b"
 JUDGE_TEMP = 0.0
 NUM_CTX = 24576  # igual a OLLAMA_CONTEXT_LENGTH do notebook (evita recarregar o modelo)
 
 SISTEMAS = ["semantico", "hibrido"]
-METRICAS = ["faithfulness", "answer_relevancy", "context_relevance", "context_utilization"]
+METRICAS = [
+    "faithfulness",
+    "answer_relevancy",
+    "context_relevance",
+    "context_utilization",
+]
 
 PROMPT = """Você é um assistente do Programa Meninas Digitais.
 Responda usando APENAS o contexto abaixo, que tem duas fontes complementares: um grafo (ENTIDADES e RELAÇÕES, quando existir) e trechos de artigos.
@@ -71,6 +76,7 @@ def recuperadores(r):
         "hibrido": lambda vec: (r._chunks_entrada(vec), r.bloco_grafo(vec)),
     }
 
+
 def descarregar(modelo: str):
     """Libera a VRAM do modelo no Ollama (keep_alive=0)."""
     try:
@@ -82,6 +88,7 @@ def descarregar(modelo: str):
         print(f"Modelo {modelo} descarregado da VRAM.", flush=True)
     except requests.RequestException as e:
         print(f"Não foi possível descarregar {modelo}: {e!r}", flush=True)
+
 
 def carregar_perguntas(n: int):
     todas = [
@@ -163,9 +170,7 @@ def fase_gerar(r, emb, perguntas):
                     }
                 ]
             )
-            linha.to_csv(
-                arquivo, mode="a", index=False, header=not arquivo.exists()
-            )
+            linha.to_csv(arquivo, mode="a", index=False, header=not arquivo.exists())
             print(f"Linha salva em {arquivo.name}", flush=True)
 
     descarregar(GEN_MODEL)
@@ -218,12 +223,13 @@ def fase_avaliar(emb):
     asyncio.set_event_loop(loop)
 
     client = AsyncOpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
+
     judge_llm = llm_factory(
         model=JUDGE_MODEL,
         provider="openai",
         client=client,
         temperature=JUDGE_TEMP,
-        max_tokens=8192,
+        max_tokens=32768,
         reasoning_effort="none",  # desliga o thinking do juiz (Ollama)
     )
 
@@ -270,7 +276,9 @@ def fase_avaliar(emb):
 
             contextos = json.loads(row["contextos"])
             print(f"ID {q_id} -> avaliando no juiz...", flush=True)
-            notas = avaliar(loop, metricas, row["user_input"], row["response"], contextos)
+            notas = avaliar(
+                loop, metricas, row["user_input"], row["response"], contextos
+            )
 
             linha = pd.DataFrame(
                 [
