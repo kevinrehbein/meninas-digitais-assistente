@@ -1,22 +1,25 @@
-import os
 import re
 import unicodedata
 from collections import defaultdict
+from pathlib import Path
 
-from config import NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD
+from config import NEO4J_PASSWORD, NEO4J_URI, NEO4J_USERNAME
 from neo4j import GraphDatabase
 
 LABEL = "__Entity__"
-PROP_NOME = "id"
-DRY_RUN = True  # True para teste, False para unir grupos
+DRY_RUN = False      # True = só lista os grupos; False = funde
+POR_TIPO = False    # True = só funde nós do mesmo tipo (Projeto com Projeto etc.)
 
-PREFIXOS = ("areade", "area", "local", "localde", "projeto ", "projetode", "programa ", "acao", "acaode", "conceito", "conceitode")
-SIGLAS = {
-    "sbc": "sociedadebrasileiradecomputacao",
-    "ti": "tecnologiadainformacao",
-    "pmd": "meninasdigitais",
-    "wit": "womeninformationtechnology",
+SIGLAS_LEGIVEIS = {
+    "SBC": "Sociedade Brasileira de Computação",
+    "TI": "Tecnologia da Informação",
+    "PMD": "Meninas Digitais",
+    "WIT": "Women in Information Technology",
 }
+
+PREFIXO_RE = re.compile(
+    r"^(area|local|projeto|programa|acao|conceito)(\s+(de|do|da|dos|das))?\s+"
+)
 
 
 def sem_acento(t: str) -> str:
@@ -24,39 +27,61 @@ def sem_acento(t: str) -> str:
     return "".join(c for c in t if not unicodedata.combining(c))
 
 
+def normalizar(nome: str) -> str:
+    nome = re.sub(r"\([^)]*\)", " ", nome)  # remove "(SBC)" e similares
+    return sem_acento(nome.replace("_", " ")).lower().strip()
+
+
+def compactar(texto: str) -> str:
+    return re.sub(r"[^a-z0-9+]", "", texto)
+
+
+SIGLAS = {
+    compactar(normalizar(sigla)): compactar(normalizar(completo))
+    for sigla, completo in SIGLAS_LEGIVEIS.items()
+}
+
+
 def chave(nome: str) -> str:
-    nome = sem_acento(nome.replace("_", " ")).lower().strip()
-    for p in PREFIXOS:
-        if nome.startswith(p):
-            nome = nome[len(p):]
-            break
-    nome = re.sub(r"[^a-z0-9+]", "", nome)
-    nome = SIGLAS.get(nome, nome)
-    return nome
+    n = normalizar(nome)
+    sem_prefixo = PREFIXO_RE.sub("", n, count=1)
+    if sem_prefixo:  # nunca deixa a chave vazia
+        n = sem_prefixo
+    n = compactar(n)
+    return SIGLAS.get(n, n)
 
 
 def melhor_nome(nome: str) -> tuple:
-    limpo = sem_acento(nome).lower().replace("_", " ")
     return (
-        not limpo.startswith(PREFIXOS),  # prefere sem prefixo
+        not PREFIXO_RE.match(normalizar(nome)),  # prefere sem prefixo
         "_" not in nome,
         " " in nome,
-        nome != sem_acento(nome),        # prefere com acento
+        nome != sem_acento(nome),                # prefere com acento
         nome != nome.lower(),
     )
+
+
+def tipo_do_no(rotulos: list[str]) -> str:
+    return next((r for r in rotulos if r != LABEL), "")
 
 
 def buscar_grupos(session) -> list[list[dict]]:
     nos = session.run(
         f"""
-        MATCH (e:{LABEL}) WHERE e.{PROP_NOME} IS NOT NULL
-        RETURN elementId(e) AS id, e.id AS nome, count {{ (e)--() }} AS grau
+        MATCH (e:{LABEL}) WHERE e.id IS NOT NULL
+        RETURN elementId(e) AS id, e.id AS nome, labels(e) AS rotulos,
+               count {{ (e)--() }} AS grau
         """
     ).data()
 
     grupos = defaultdict(list)
     for no in nos:
-        grupos[chave(no["nome"])].append(no)
+        k = chave(no["nome"])
+        if not k:
+            continue
+        if POR_TIPO:
+            k = (tipo_do_no(no["rotulos"]), k)
+        grupos[k].append(no)
 
     return [g for g in grupos.values() if len(g) > 1]
 
@@ -84,6 +109,13 @@ def unir_grupo(session, grupo: list[dict]) -> None:
     )
 
 
+def descrever(grupo: list[dict]) -> str:
+    itens = sorted({(tipo_do_no(n["rotulos"]), n["nome"]) for n in grupo})
+    mistura = len({t for t, _ in itens}) > 1
+    texto = " | ".join(f"{nome} [{tipo}]" for tipo, nome in itens)
+    return ("(TIPOS MISTOS) " if mistura else "") + texto
+
+
 def main() -> None:
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
     try:
@@ -92,10 +124,10 @@ def main() -> None:
             grupos.sort(key=len, reverse=True)
 
             print(f"Grupos de duplicatas: {len(grupos)}")
-            print(f"Nós removidos pelo merge: {sum(len(g) - 1 for g in grupos)}\n")
+            print(f"Nós removidos pelo merge: {sum(len(g) - 1 for g in grupos)}")
 
-            for g in grupos[:50]:
-                print(" | ".join(sorted({n["nome"] for n in g})))
+            for g in grupos:
+                print(descrever(g))
 
             if DRY_RUN:
                 print("\nDRY_RUN ativo: nada foi alterado.")

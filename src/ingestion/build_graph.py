@@ -190,6 +190,7 @@ def extrair(doc):
     except Exception as e:  # noqa: BLE001
         return doc, None, e
 
+
 def gravar(doc, graph_docs):
     """Roda na thread principal, um chunk por vez."""
     graph.add_graph_documents(graph_docs, baseEntityLabel=True, include_source=True)

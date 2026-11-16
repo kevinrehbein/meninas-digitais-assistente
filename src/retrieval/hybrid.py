@@ -12,7 +12,7 @@ from config import (
 )
 
 from .connection import get_graph
-from .embeddings import SpaceEmbeddings
+from .embedding_model import SpaceEmbeddings
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,9 @@ class HybridRetriever:
             MATCH (e:__Entity__)
                 SEARCH e IN (VECTOR INDEX entity_embedding FOR $vec LIMIT $n)
                 SCORE AS score
-            WHERE score >= $min AND e.grau <= $teto
+            WHERE score >= $min
+                AND e.grau <= $teto
+                AND EXISTS { (e)-[]-(:__Entity__) }
             RETURN elementId(e) AS eid, e.id AS nome,
                 coalesce(e.descricao, '') AS descricao, score
             """,

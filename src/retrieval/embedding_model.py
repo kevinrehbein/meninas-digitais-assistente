@@ -1,13 +1,15 @@
 import json
-import logging
+import os
 import threading
 import time
 
+from dotenv import load_dotenv
 from gradio_client import Client
 from langchain_core.embeddings import Embeddings
 
-logger = logging.getLogger(__name__)
+DIM = 1024
 
+load_dotenv()
 
 class SpaceEmbeddings(Embeddings):
     """Embeddings BGE-M3 servidos por um Space do Hugging Face (Gradio)."""
@@ -36,12 +38,6 @@ class SpaceEmbeddings(Embeddings):
             except Exception as exc:
                 last = exc
                 self._client = None
-                logger.warning(
-                    "Embeddings: tentativa %d/%d falhou (%s)",
-                    attempt,
-                    self.retries,
-                    exc,
-                )
                 time.sleep(self.wait)
         raise RuntimeError(f"Space de embeddings indisponível: {last}")
 
@@ -53,3 +49,9 @@ class SpaceEmbeddings(Embeddings):
         for i in range(0, len(texts), 32):
             out.extend(self._call(texts[i : i + 32]))
         return out
+
+def get_embeddings() -> Embeddings:
+    space_id = os.getenv("EMBEDDING_SPACE")
+    if not space_id:
+        raise RuntimeError("Defina EMBEDDING_SPACE no .env")
+    return SpaceEmbeddings(space_id)

@@ -1,21 +1,16 @@
 import os
 
-import torch
 from dotenv import load_dotenv
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_neo4j import Neo4jGraph
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
-DIM = 1024
+from retrieval.embedding_model import DIM, get_embeddings
+
 LOTE = 32
 
 load_dotenv()
 
-embedding_model = HuggingFaceEmbeddings(
-    model_name="BAAI/bge-m3",
-    model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"},
-    encode_kwargs={"normalize_embeddings": True, "batch_size": 16},
-)
+embedding_model = get_embeddings()
 
 graph = Neo4jGraph(
     url=os.getenv("NEO4J_URI"),
@@ -29,9 +24,13 @@ ALVOS = {
     "__Entity__": (
         "entity_embedding",
         "head([l IN labels(n) WHERE l <> '__Entity__']) + ': ' + n.id "
-        "+ coalesce('. ' + n.descricao, '')",
+        "+ coalesce('. ' + n.descricao, '') "
+        "+ CASE WHEN size([a IN coalesce(n.aliases, []) WHERE a <> n.id]) = 0 THEN '' "
+        "  ELSE ' (também: ' + reduce(s = '', a IN [x IN n.aliases WHERE x <> n.id] "
+        "| s + CASE WHEN s = '' THEN '' ELSE ', ' END + a) + ')' END",
     ),
 }
+
 
 @retry(
     stop=stop_after_attempt(5),
@@ -40,7 +39,6 @@ ALVOS = {
 )
 def query(cypher: str, params: dict | None = None):
     return graph.query(cypher, params or {})
-
 
 
 def embedar(label: str, indice: str, texto: str) -> None:
@@ -57,7 +55,7 @@ def embedar(label: str, indice: str, texto: str) -> None:
     rows = query(
         f"""
         MATCH (n:`{label}`)
-        WHERE n.embedding IS NULL AND coalesce(n.skip_embedding, false) = false
+        WHERE n.embedding IS NULL
         WITH n, {texto} AS texto
         WHERE texto IS NOT NULL AND trim(texto) <> ''
         RETURN elementId(n) AS eid, texto
