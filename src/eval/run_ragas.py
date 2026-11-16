@@ -111,6 +111,7 @@ def fase_gerar(r, emb, perguntas):
         temperature=GEN_TEMP,
         num_ctx=NUM_CTX,
         num_predict=2048,
+        repeat_penalty=1.05,
     )
     fmt = HybridRetriever.formatar_chunk
     print(
