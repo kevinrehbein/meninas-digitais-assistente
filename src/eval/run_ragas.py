@@ -56,7 +56,7 @@ Responda usando APENAS o contexto abaixo, que traz trechos de artigos e, às vez
 Regras:
 - Considere todos os trechos, entidades e relações como evidência confiável e reúna os itens relevantes para a pergunta.
 - Inclua cada item relevante encontrado na resposta.
-- Após cada item, cite obrigatoriamente a fonte no formato: [FONTE: Título exato do artigo], usando o título do artigo, nunca o nome de um item.
+- Após cada item, cite obrigatoriamente [FONTE: Título exato do artigo], copiando o título que vem no trecho ou na tripla depois de "FONTE:". Nunca use nome de entidade como fonte.
 - Se o contexto cobrir só parte da pergunta, responda com o que encontrou. Apenas diga que não encontrou se não houver nenhuma informação relevante.
 
 Trechos dos artigos:
@@ -227,7 +227,7 @@ def fase_avaliar(emb):
         model=JUDGE_MODEL,
         provider="openai",
         client=client,
-        temperature=0.0,
+        temperature=JUDGE_TEMP,
         max_tokens=8192,
         reasoning_effort="none",  # desliga o thinking do juiz (Ollama)
     )
