@@ -1,7 +1,0 @@
-{
-  "permission": {
-    "read": {
-      ".env*": "deny"
-    }
-  }
-}

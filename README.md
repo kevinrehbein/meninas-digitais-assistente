@@ -80,14 +80,6 @@ npm run build       # build de produção
 npm start           # servir o build
 ```
 
-### 3. Streamlit (legado)
-
-```bash
-streamlit run src/app.py
-```
-
----
-
 ## Variáveis de ambiente
 
 Crie um `.env` na raiz. O backend valida as chaves obrigatórias no início de cada
