@@ -196,3 +196,14 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Frontend (Next.js)
+web/node_modules/
+web/.next/
+web/.turbo/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+web/.vercel/
+
+# Vercel
+.vercel/
