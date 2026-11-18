@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Code2 } from "lucide-react";
+import { ArrowUpRight, Code2, GitBranch } from "lucide-react";
 
 import { BrandMark } from "@/components/brand/brand-mark";
 import { TapestryBand } from "@/components/brand/tapestry";
@@ -9,6 +9,8 @@ const links = [
   { href: "https://meninas.sbc.org.br/sobre-o-wit/", label: "Sobre o WIT" },
   { href: "https://sol.sbc.org.br/index.php/wit/issue/archive", label: "Anais do WIT" },
 ];
+
+const GITHUB_URL = "https://github.com/SEU-USUARIO/SEU-REPOSITORIO";
 
 export function SiteFooter() {
   return (
@@ -44,23 +46,25 @@ export function SiteFooter() {
               <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
             </a>
           ))}
-          <Link
-            href="/sobre"
-            className="mt-1 text-[12px] font-medium text-brand-blue hover:underline"
-          >
-            Sobre este projeto
-          </Link>
         </nav>
 
         <div className="max-w-xs text-[10.5px] leading-relaxed text-brand-muted/80">
           <p>
             Identidade visual baseada no Manual de Identidade Visual do Programa Meninas
-            Digitais, versão 2.0.
+            Digitais.
           </p>
-          <p className="mt-2 inline-flex items-center gap-1.5">
-            <Code2 className="h-3 w-3" aria-hidden="true" />
-            Next.js · FastAPI · LangGraph
+          <p className="mt-2 text-[11px] font-medium text-brand-muted">
+            Construído por Kevin Rehbein
           </p>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-brand-blue hover:underline"
+          >
+            Repositório no GitHub
+            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+          </a>
         </div>
       </div>
     </footer>

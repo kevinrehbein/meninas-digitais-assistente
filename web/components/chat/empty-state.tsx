@@ -26,11 +26,6 @@ export function EmptyState({ onSelect, disabled = false }: EmptyStateProps) {
       </div>
       <TapestryBand rows={1} className="mt-3 h-1.5 w-24 rounded-full sm:mt-4" />
 
-      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-brand-line bg-white px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-brand-purple sm:mt-5">
-        <Sparkles className="h-3 w-3" aria-hidden="true" />
-        GraphRAG sobre o WIT
-      </span>
-
       <h1 className="mt-2.5 font-display text-[2rem] leading-[1.05] tracking-[0.015em] text-brand-ink sm:mt-3 sm:text-5xl">
         Assistente
         <span className="block text-brand-purple">Meninas Digitais</span>
@@ -38,7 +33,7 @@ export function EmptyState({ onSelect, disabled = false }: EmptyStateProps) {
 
       <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-brand-muted sm:mt-4 sm:text-sm">
         Pergunte sobre os artigos do <strong className="font-semibold text-brand-ink">Women in
-        Information Technology</strong>. O assistente pesquisa a base, organiza evidências e
+        Information Technology</strong>. O sistema multiagentes pesquisa a base, organiza evidências e
         verifica a fidelidade da resposta antes de responder.
       </p>
 
@@ -50,10 +45,6 @@ export function EmptyState({ onSelect, disabled = false }: EmptyStateProps) {
         <span className="inline-flex items-center gap-1.5">
           <ShieldCheck className="h-3.5 w-3.5 text-brand-green" aria-hidden="true" />
           Verificação de fidelidade
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-brand-rose" aria-hidden="true" />
-          Cada pergunta é independente
         </span>
       </div>
 

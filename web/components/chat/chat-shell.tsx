@@ -88,7 +88,7 @@ export function ChatShell() {
             />
             <span className="text-[12.5px] font-semibold text-brand-ink">Conversa</span>
             <span className="hidden truncate text-[10.5px] text-brand-muted sm:inline">
-              · cada pergunta é independente
+             (cada pergunta é independente)
             </span>
           </div>
 

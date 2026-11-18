@@ -8,17 +8,17 @@ import {
   CheckCircle2,
   ClipboardList,
   Compass,
-  Database,
   ExternalLink,
   HeartHandshake,
   Library,
   Palette,
-  Quote,
   Search,
   ShieldCheck,
   Sparkles,
-  Target,
-  Users,
+  ListOrdered,
+  GitBranch,
+  Workflow,
+  Network
 } from "lucide-react";
 
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -30,6 +30,8 @@ export const metadata: Metadata = {
   description:
     "Conheça o Assistente Meninas Digitais: um projeto acadêmico de pesquisa sobre os artigos do WIT.",
 };
+
+const GITHUB_URL = "https://github.com/SEU-USUARIO/SEU-REPOSITORIO";
 
 const PALETTE = [
   { name: "Rosa", hex: "#C96372" },
@@ -53,12 +55,6 @@ const CAPABILITIES = [
     text: "Estrutura propostas de oficinas, cursos e ações de inclusão com justificativa, metodologia, desafios e indicadores.",
     color: "bg-[#EDEFF9] text-brand-blue",
   },
-  {
-    icon: BookOpenCheck,
-    title: "Rastreabilidade",
-    text: "Cada resposta pode ser conferida nas fontes consultadas, com links para os artigos que sustentam o texto.",
-    color: "bg-[#EEF6EB] text-brand-green",
-  },
 ];
 
 const PIPELINE = [
@@ -67,19 +63,24 @@ const PIPELINE = [
     title: "1. Classificação",
     text: "O supervisor identifica a intenção — pergunta direta, síntese ou plano — e decide o esforço de pesquisa.",
   },
-  {
+    {
     icon: Library,
-    title: "2. Pesquisa GraphRAG",
-    text: "O pesquisador consulta os artigos por similaridade vetorial e expande o contexto pelas relações do grafo de entidades.",
+    title: "2. Decomposição de Tarefas",
+    text: "O descompositor quebra buscas complexas em passos menores, que serão sequencialmente feitas pelo pesquisador. ",
+  },
+  {
+    icon: ListOrdered,
+    title: "3. Pesquisa Híbrida RAG + Grafos de Conhecimento",
+    text: "O pesquisador consulta os artigos por similaridade vetorial e expande o contexto pelas relações do grafo de conhecimento.",
   },
   {
     icon: Sparkles,
-    title: "3. Redação",
+    title: "4. Redação",
     text: "O redator ou o planejador organiza a resposta usando apenas as evidências coletadas na base.",
   },
   {
     icon: ShieldCheck,
-    title: "4. Verificação",
+    title: "5. Verificação",
     text: "Um verificador compara o rascunho com as evidências e pode pedir correção, nova pesquisa ou reclassificação.",
   },
 ];
@@ -94,7 +95,7 @@ const GUARANTEES = [
 const LIMITS = [
   "O assistente pode cometer erros. A resposta não substitui a leitura do artigo original.",
   "Cada pergunta é independente: não há memória de mensagens anteriores.",
-  "Perguntas fora do escopo de Computação, mulheres na TI e WIT são recusadas.",
+  "Perguntas fora do escopo são recusadas.",
   "O projeto é acadêmico e não representa uma posição oficial do PMD ou da SBC.",
 ];
 
@@ -120,16 +121,19 @@ export default function AboutPage() {
                   Sobre o projeto
                 </span>
                 <h1 className="mt-4 font-display text-4xl leading-[1.05] tracking-[0.01em] text-brand-ink sm:text-5xl">
-                  Uma ponte entre a pesquisa do WIT e quem quer aprender.
+                  Uma ponte entre a produção do WIT e você.
                 </h1>
                 <p className="mt-5 max-w-xl text-[14px] leading-relaxed text-brand-muted sm:text-[15px]">
-                  O Assistente Meninas Digitais é um projeto acadêmico que usa agentes de
-                  inteligência artificial e GraphRAG para tornar os artigos do{" "}
+                  O Meninas Digitais Assistente é um projeto acadêmico que usa
+                  agentes de Inteligência Artificial e Geração Aumentada por
+                  Recuperação baseada em Grafo de Conhecimento para tornar os
+                  artigos do{" "}
                   <strong className="font-semibold text-brand-ink">
                     Women in Information Technology
                   </strong>{" "}
-                  mais acessíveis. Em vez de uma busca por palavras-chave, você conversa com
-                  uma ferramenta que pesquisa, organiza evidências e verifica o que escreveu.
+                  mais acessíveis. Em vez de uma busca por palavras-chave, você
+                  conversa com uma ferramenta que pesquisa, organiza evidências
+                  e verifica o que escreveu.
                 </p>
                 <div className="mt-7 flex flex-wrap gap-2.5">
                   <Link
@@ -156,12 +160,17 @@ export default function AboutPage() {
                   className="absolute -inset-4 rounded-[2rem] bg-[conic-gradient(from_140deg,#C96372,#7B3688,#35418E,#F8E12D,#54963D,#CE6B00,#C96372)] opacity-20 blur-sm"
                   aria-hidden="true"
                 />
-                <div className="relative rounded-[1.75rem] border border-brand-line bg-white p-6 shadow-[0_24px_60px_-40px_rgba(26,26,30,0.5)]">
-                  <BrandMark size={96} className="mx-auto ring-4 ring-brand-lilac" />
-                  <TapestryBand rows={1} className="mx-auto mt-5 h-1.5 w-24 rounded-full" />
+                <div className="relative flex flex-col items-center rounded-[1.75rem] border border-brand-line bg-white p-6 shadow-[0_24px_60px_-40px_rgba(26,26,30,0.5)]">
+                  <BrandMark
+                    size={96}
+                    className="mx-auto ring-4 ring-brand-lilac"
+                  />
                   <p className="mt-5 text-center text-sm font-semibold text-brand-ink">
-                    &ldquo;Despertar o interesse de meninas para seguirem carreira em
-                    Tecnologia da Informação e Comunicação.&rdquo;
+                    &ldquo;Promover, articular e apoiar iniciativas que
+                    estimulem o interesse, a permanência e o protagonismo de
+                    meninas e mulheres na área de Computação, por meio de ações
+                    educativas, científicas e extensionistas em todos os níveis
+                    de educação. &rdquo;
                   </p>
                   <p className="mt-2 text-center text-[10.5px] uppercase tracking-[0.14em] text-brand-muted">
                     Missão do Programa Meninas Digitais
@@ -174,22 +183,28 @@ export default function AboutPage() {
 
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
           <section className="border-b border-brand-line/70 py-12 sm:py-16">
-            <div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr]">
+            <div className="max-w-3xl">
               <div>
                 <h2 className="font-display text-3xl tracking-[0.01em] text-brand-ink">
                   O Programa Meninas Digitais
                 </h2>
                 <p className="mt-4 text-[13px] leading-relaxed text-brand-muted">
-                  Criado em 2011 sob a coordenação da Secretaria Regional da SBC de Mato
-                  Grosso, o Programa Meninas Digitais foi acolhido e chancelado pela
-                  Sociedade Brasileira de Computação em 2015, tornando-se um programa de
-                  interesse nacional.
+                  O Programa Meninas Digitais foi criado em 2011 sob a
+                  coordenação da Secretaria Regional da Sociedade Brasileira de
+                  Computação (SBC) em Mato Grosso e, em 2015, foi
+                  institucionalizado pela SBC, recebendo sua chancela, como
+                  programa de interesse nacional da comunidade de Computação.
                 </p>
                 <p className="mt-3 text-[13px] leading-relaxed text-brand-muted">
-                  Sua origem está nas conversas do WIT, evento base do CSBC que discute
-                  questões de gênero na Computação por meio de histórias de sucesso,
-                  políticas de incentivo e formas de engajamento de jovens — especialmente
-                  mulheres.
+                  A ideia do Programa Meninas Digitais surgiu a partir de
+                  discussões no Women in Information Technology (WIT), evento
+                  base do Congresso da Sociedade Brasileira de Computação
+                  (CSBC). O WIT é uma iniciativa da SBC realizada desde 2007
+                  para discutir assuntos relacionados às questões de gênero e a
+                  Tecnologia de Informação (TI) no Brasil por meio de histórias
+                  de sucesso, políticas de incentivo e formas de engajamento e
+                  atração de jovens, especialmente mulheres, para as carreiras
+                  associadas à TI.
                 </p>
                 <a
                   href="https://meninas.sbc.org.br/sobre-o-wit/"
@@ -201,41 +216,6 @@ export default function AboutPage() {
                   <ExternalLink className="h-3 w-3" aria-hidden="true" />
                 </a>
               </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-brand-line bg-white p-4">
-                  <Users className="h-4 w-4 text-brand-purple" aria-hidden="true" />
-                  <p className="mt-2 text-sm font-semibold text-brand-ink">Público</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-brand-muted">
-                    Estudantes do ensino fundamental, médio e tecnológico, além de
-                    pesquisadoras e educadoras.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-brand-line bg-white p-4">
-                  <Target className="h-4 w-4 text-brand-rose" aria-hidden="true" />
-                  <p className="mt-2 text-sm font-semibold text-brand-ink">Missão</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-brand-muted">
-                    Divulgar a Computação para meninas e motivá-las a seguir carreira na
-                    área.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-brand-line bg-white p-4">
-                  <Database className="h-4 w-4 text-brand-blue" aria-hidden="true" />
-                  <p className="mt-2 text-sm font-semibold text-brand-ink">Base do assistente</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-brand-muted">
-                    Artigos publicados nos anais do WIT, indexados em um grafo de
-                    conhecimento.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-brand-line bg-white p-4">
-                  <Quote className="h-4 w-4 text-brand-green" aria-hidden="true" />
-                  <p className="mt-2 text-sm font-semibold text-brand-ink">Transparência</p>
-                  <p className="mt-1 text-[11.5px] leading-relaxed text-brand-muted">
-                    Toda resposta indica as fontes consultadas e passa por verificação de
-                    fidelidade.
-                  </p>
-                </div>
-              </div>
             </div>
           </section>
 
@@ -245,8 +225,8 @@ export default function AboutPage() {
                 O que o assistente faz
               </h2>
               <p className="mt-3 text-[13px] leading-relaxed text-brand-muted">
-                A ferramenta foi desenhada para três tipos de uso, todos ancorados nos
-                artigos do WIT.
+                A ferramenta foi desenhada para dois tipos de uso, todos
+                ancorados nos artigos do WIT.
               </p>
             </div>
             <div className="mt-7 grid gap-3.5 md:grid-cols-3">
@@ -280,8 +260,8 @@ export default function AboutPage() {
                 Como a resposta é construída
               </h2>
               <p className="mt-3 text-[13px] leading-relaxed text-brand-muted">
-                Um grafo de agentes coordena quatro etapas. Você acompanha cada uma delas
-                na interface enquanto a resposta é preparada.
+                Um grafo de agentes coordena cinco etapas. Você acompanha cada
+                uma delas na interface enquanto a resposta é preparada.
               </p>
             </div>
 
@@ -297,7 +277,9 @@ export default function AboutPage() {
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div>
-                      <h3 className="text-sm font-semibold text-brand-ink">{step.title}</h3>
+                      <h3 className="text-sm font-semibold text-brand-ink">
+                        {step.title}
+                      </h3>
                       <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">
                         {step.text}
                       </p>
@@ -308,11 +290,96 @@ export default function AboutPage() {
             </ol>
           </section>
 
+          <section className="py-12 sm:py-16">
+            <div className="max-w-2xl">
+              <h2 className="font-display text-3xl tracking-[0.01em] text-brand-ink">
+                Tecnologia
+              </h2>
+              <p className="mt-3 text-[13px] leading-relaxed text-brand-muted">
+                O assistente é construído sobre dois pilares: LangGraph, que
+                orquestra o fluxo de agentes, e Neo4j, que guarda o grafo de
+                conhecimento com os artigos do WIT.
+              </p>
+            </div>
+ 
+            <div className="mt-7 grid gap-3.5 md:grid-cols-2">
+              <div className="rounded-2xl border border-brand-line bg-white p-6">
+
+                <h3 className="mt-4 font-display text-2xl tracking-[0.01em] text-brand-ink">
+                  LangGraph
+                </h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">
+                  Cada pergunta percorre um grafo de agentes com etapas
+                  explícitas: entender a pergunta, recuperar evidências, gerar
+                  a resposta e verificar a fidelidade em relação às fontes.
+                  Como o fluxo é um grafo, cada passo pode ser inspecionado e
+                  ajustado de forma independente.
+                </p>
+              </div>
+ 
+              <div className="rounded-2xl border border-brand-line bg-white p-6">
+                <h3 className="mt-4 font-display text-2xl tracking-[0.01em] text-brand-ink">
+                  Neo4j
+                </h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-brand-muted">
+                  Os artigos dos anais do WIT ficam indexados como nós e possuem
+                  relações. A recuperação combina busca vetorial por embeddings com expansão
+                  pelas conexões do grafo, trazendo nós relacionados que a
+                  busca por similaridade sozinha não encontraria.
+                </p>
+              </div>
+            </div>
+ 
+            <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-brand-line bg-brand-lilac/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-brand-ink">
+                  Código aberto no GitHub
+                </p>
+                <p className="mt-1 text-[12px] leading-relaxed text-brand-muted">
+                  Veja o grafo de agentes, o esquema do Neo4j e o pipeline de
+                  indexação.
+                </p>
+              </div>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-brand-ink px-5 py-2.5 text-[12px] font-semibold text-white transition hover:bg-brand-purple"
+              >
+                <GitBranch className="h-4 w-4" aria-hidden="true" />
+                Ver repositório
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+              </a>
+            </div>
+ 
+            <div className="mt-5 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
+                Também usamos
+              </span>
+              {[
+                "Next.js",
+                "TypeScript",
+                "Tailwind CSS",
+                "FastAPI",
+              ].map((tech) => (
+                <span
+                  key={tech}
+                  className="rounded-full border border-brand-line bg-white px-2.5 py-1 text-[10.5px] font-semibold text-brand-muted"
+                >
+                  {tech}
+                </span>
+              ))}
+            </div>
+          </section>
+
           <section className="border-b border-brand-line/70 py-12 sm:py-16">
             <div className="grid gap-5 md:grid-cols-2">
               <div className="rounded-2xl border border-brand-line bg-white p-5">
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-ink">
-                  <ShieldCheck className="h-4 w-4 text-brand-success" aria-hidden="true" />
+                  <ShieldCheck
+                    className="h-4 w-4 text-brand-success"
+                    aria-hidden="true"
+                  />
                   O que garantimos
                 </h2>
                 <ul className="mt-3 space-y-2.5">
@@ -351,67 +418,6 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="py-12 sm:py-16">
-            <div className="grid gap-8 md:grid-cols-[1fr_0.9fr] md:items-start">
-              <div>
-                <h2 className="font-display text-3xl tracking-[0.01em] text-brand-ink">
-                  Tecnologia e identidade visual
-                </h2>
-                <p className="mt-3 text-[13px] leading-relaxed text-brand-muted">
-                  A interface foi construída com Next.js no frontend e FastAPI no backend,
-                  executando o grafo de agentes em LangGraph. A recuperação combina busca
-                  vetorial com expansão por relações no Neo4j.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {[
-                    "Next.js",
-                    "TypeScript",
-                    "Tailwind CSS",
-                    "FastAPI",
-                    "LangGraph",
-                    "Neo4j",
-                    "BGE-M3",
-                    "Vercel",
-                  ].map((tech) => (
-                    <span
-                      key={tech}
-                      className="rounded-full border border-brand-line bg-white px-2.5 py-1 text-[10.5px] font-semibold text-brand-muted"
-                    >
-                      {tech}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-4 text-[11px] leading-relaxed text-brand-muted">
-                  As cores e a tapeçaria vêm do Manual de Identidade Visual do Programa
-                  Meninas Digitais, versão 2.0. A tipografia da interface usa Poppins e
-                  Pathway Gothic One como adaptações web das fontes institucionais.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-brand-line bg-white p-4">
-                <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
-                  <Palette className="h-3.5 w-3.5 text-brand-purple" aria-hidden="true" />
-                  Paleta primária
-                </h3>
-                <ul className="mt-3 grid grid-cols-3 gap-2">
-                  {PALETTE.map((color) => (
-                    <li key={color.hex}>
-                      <span
-                        className="block h-12 w-full rounded-lg ring-1 ring-black/5"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <span className="mt-1 block text-[10px] font-semibold text-brand-ink">
-                        {color.name}
-                      </span>
-                      <span className="block font-mono text-[9px] text-brand-muted">
-                        {color.hex}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </section>
         </div>
 
         <section className="mx-auto w-full max-w-6xl px-4 pb-4 sm:px-6">
@@ -424,8 +430,8 @@ export default function AboutPage() {
                   Pronto para pesquisar?
                 </h2>
                 <p className="mt-2 text-[12.5px] leading-relaxed text-white/80">
-                  Faça uma pergunta sobre os artigos do WIT, peça um panorama ou monte um
-                  plano de projeto com base na literatura.
+                  Faça uma pergunta sobre os artigos do WIT, peça um panorama ou
+                  monte um plano de projeto com base na literatura.
                 </p>
               </div>
               <Link
