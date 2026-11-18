@@ -7,6 +7,10 @@ import { readEventStream } from "@/lib/sse";
 import { clearStoredMessages, loadMessages, saveMessages } from "@/lib/storage";
 import type { AgentStep, ChatMessage, StreamEvent } from "@/lib/types";
 
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? ""
+).replace(/\/+$/, "");
+
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -139,7 +143,7 @@ export function useChatStream() {
       };
 
       try {
-        const response = await fetch("/api/chat", {
+        const response = await fetch(`${API_URL}/api/chat`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
