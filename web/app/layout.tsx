@@ -19,7 +19,7 @@ const pathway = Pathway_Gothic_One({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://meninas-digitais.onrender.com/";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://meninas-digitais-assistente.onrender.com/";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
