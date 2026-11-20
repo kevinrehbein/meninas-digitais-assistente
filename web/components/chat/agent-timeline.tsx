@@ -134,11 +134,6 @@ function StepItem({ step }: { step: AgentStep }) {
           </ol>
         ) : null}
 
-        {step.data.feedback ? (
-          <p className="mt-1.5 border-l-2 border-brand-orange/50 pl-2 text-[11.5px] italic leading-relaxed text-brand-muted">
-            {step.data.feedback}
-          </p>
-        ) : null}
       </div>
     </li>
   );
@@ -165,7 +160,7 @@ export function AgentTimeline({ steps, streaming, defaultOpen = false }: AgentTi
   const working = streaming ? (
     <div className="mt-3 flex items-center gap-2 border-t border-brand-line/70 pt-2.5 text-[11.5px] font-medium text-brand-purple">
       <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-      <span>Analisando evidências e preparando a resposta…</span>
+      <span>Preparando a resposta…</span>
     </div>
   ) : null;
 
